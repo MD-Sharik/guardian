@@ -18,6 +18,7 @@ Trace shape:
 
 from __future__ import annotations
 
+import asyncio
 import json
 import logging
 from typing import Any
@@ -43,7 +44,9 @@ def _drop_nulls(value: Any) -> Any:
     return value
 
 
-def _jev_span(d: Decision) -> dict[str, Any]:
+def _jev_span(d: Decision) -> dict[str, Any] | None:
+    if not d.checked:
+        return None  # fast path: Jev wasn't asked
     if d.jev is None:
         return {"name": "jev.system_one", "kind": "GUARDRAIL", "status": "error", "error": d.jev_error}
     s = d.jev.signals
@@ -55,25 +58,27 @@ def _jev_span(d: Decision) -> dict[str, Any]:
         "output": _json(d.jev.answers),
         "duration_ms": round(d.jev.latency_ms, 2),
         "status": "ok",
-        "attributes": {
-            "neatlogs.guardrail.input": _json(d.jev.state["proposed_action"]),
-            "neatlogs.guardrail.output": _json(d.jev.answers),
-            "neatlogs.guardrail.passed": d.verdict == "ALLOW",
-            "neatlogs.guardrail.score": s.p_safe,
-        },
-        "metadata": {"jev.confidence": s.confidence, "jev.risk": s.risk},
+        # NeatLogs shows Passed / Blocked from these convenience fields.
+        "passed": d.verdict == "ALLOW",
+        "score": s.p_safe,
+        "metadata": {"jev.confidence": s.confidence, "jev.risk": s.risk, "jev.input_tokens": d.jev.input_tokens},
     }
 
 
 def build_payload(d: Decision, project: str) -> dict[str, Any]:
     action = {"agent": d.agent_name, "tool": d.tool, "args": d.args}
     verdict = {"verdict": d.verdict, "status": d.status, "confidence": d.confidence, "reasons": d.reasons}
+    jev_span = _jev_span(d)
     children: list[dict[str, Any]] = [
-        _jev_span(d),
+        *([jev_span] if jev_span else []),
         {
             "name": "guardian.policy",
             "kind": "CHAIN",
-            "input": _json(d.jev.signals.model_dump() if d.jev else {"jev_error": d.jev_error}),
+            "input": _json(
+                d.jev.signals.model_dump() if d.jev
+                else {"jev_error": d.jev_error} if d.checked
+                else {"fast_path": d.tool}
+            ),
             "output": _json(verdict),
             "duration_ms": 0.1,
         },
@@ -108,11 +113,14 @@ def build_payload(d: Decision, project: str) -> dict[str, Any]:
         "output": _json(verdict),
         "duration_ms": round(d.latency_ms, 2),
         "status": "ok",
+        # Groups every decision of one agent session (and the agent's own run trace) in NeatLogs.
+        "attributes": {"neatlogs.session.id": d.session_id} if d.session_id else None,
         "metadata": {
             "guardian.decision_id": d.id,
             "guardian.verdict": d.verdict,
             "guardian.agent": d.agent_name,
             "guardian.session_id": d.session_id,
+            "guardian.checked": d.checked,
             **{f"guardian.{k}": v for k, v in d.context.metadata.items() if isinstance(v, (str, int, float))},
         },
         "children": children,
@@ -133,9 +141,16 @@ def _find_trace_id(body: Any) -> str | None:
 
 
 class NeatLogsTracer:
-    def __init__(self, settings: Settings, transport: httpx.AsyncBaseTransport | None = None):
+    def __init__(
+        self,
+        settings: Settings,
+        transport: httpx.AsyncBaseTransport | None = None,
+        attempts: int = 3,
+        backoff_s: float = 1.0,
+    ):
         self.settings = settings
         self.mode = "live" if settings.neatlogs_api_key else "off"
+        self.attempts, self.backoff_s = attempts, backoff_s
         self._http = httpx.AsyncClient(timeout=10.0, transport=transport) if self.mode == "live" else None
 
     async def aclose(self) -> None:
@@ -146,17 +161,30 @@ class NeatLogsTracer:
         if self._http is None:
             return None
         payload = build_payload(d, self.settings.neatlogs_project)
-        try:
-            resp = await self._http.post(
-                f"{self.settings.neatlogs_ingest_url}/v1/trace",
-                headers={"x-api-key": self.settings.neatlogs_api_key},
-                json=payload,
-            )
-            resp.raise_for_status()
-        except httpx.HTTPError as exc:
-            detail = exc.response.text[:300] if isinstance(exc, httpx.HTTPStatusError) else ""
-            log.warning("NeatLogs ingest failed: %s %s", exc, detail)
-            return TraceRef(mode="error", payload=payload, error=f"{exc} {detail}".strip())
+        error = ""
+        for attempt in range(self.attempts):
+            try:
+                resp = await self._http.post(
+                    f"{self.settings.neatlogs_ingest_url}/v1/trace",
+                    headers={"x-api-key": self.settings.neatlogs_api_key},
+                    json=payload,
+                )
+                resp.raise_for_status()
+                break
+            except httpx.HTTPStatusError as exc:
+                error = f"NeatLogs ingest returned {exc.response.status_code}: {exc.response.text[:300]}"
+                if exc.response.status_code < 500:
+                    break  # the payload is wrong; resending won't help
+            except httpx.HTTPError as exc:
+                error = f"NeatLogs ingest failed: {exc}"
+            if attempt < self.attempts - 1:
+                await asyncio.sleep(self.backoff_s * 2**attempt)
+        else:
+            resp = None
+        if resp is None or resp.is_error:
+            # Kept with the decision, so POST /traces/retry can send it once NeatLogs is back.
+            log.warning("%s", error)
+            return TraceRef(mode="error", payload=payload, error=error)
         try:
             trace_id = _find_trace_id(resp.json())
         except ValueError:

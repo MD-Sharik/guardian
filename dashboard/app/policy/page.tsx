@@ -70,7 +70,7 @@ export default function Policy() {
                     <Rule verdict="ask" when={`confidence below ${t.min_confidence}`} />
                     <Rule verdict="ask" when={`P(safe) between ${t.block_safe_below} and ${t.allow_safe_above}`} />
                     <Rule verdict="ask" when={`impact at or above ${t.severity_escalate} / 3`} />
-                    <Rule verdict="ask" when={`P(on task) below ${t.on_task_min}`} />
+                    <Rule verdict="ask" when={`P(on task) below ${t.on_task_min} and impact at or above ${t.off_task_severity} / 3`} />
                     <Rule verdict="ask" when={`content being written looks incomplete (P(ok) below ${t.output_ok_min})`} />
                     <Rule verdict="ask" when="Jev picks “unclear effects”" />
                     <Rule verdict="ask" when="Jev can't be reached" />

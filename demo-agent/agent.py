@@ -1,7 +1,9 @@
 """A small LangGraph coding/ops agent: an LLM plans a step, a tool runs, repeat.
 
 Tools run through LangGraph's ToolNode, so whatever `protect()` returns is
-exactly what executes: every call is checked by Guardian first.
+exactly what executes: every call is checked by Guardian first. A tool that
+raises becomes an error result the agent can read and recover from, instead
+of ending the run.
 """
 
 from __future__ import annotations
@@ -24,7 +26,7 @@ class AgentState(TypedDict):
 def build_agent(planner, tools: list[Any]):
     graph = StateGraph(AgentState)
     graph.add_node("agent", planner)
-    graph.add_node("tools", ToolNode(tools))
+    graph.add_node("tools", ToolNode(tools, handle_tool_errors=True))
     graph.add_edge(START, "agent")
     graph.add_conditional_edges("agent", tools_condition, {"tools": "tools", END: END})
     graph.add_edge("tools", "agent")

@@ -54,6 +54,7 @@ class JevResult(BaseModel):
     signals: JevSignals
     answers: dict[str, Any]  # raw typed answers as returned by Jev
     state: dict[str, Any]  # the state Jev was asked about
+    input_tokens: int | None = None  # billed input; Jev output tokens are free
 
 
 class Explanation(BaseModel):
@@ -89,8 +90,9 @@ class Decision(BaseModel):
     status: Status
     confidence: float
     reasons: list[str]
-    jev: JevResult | None  # None when Jev could not be reached; see jev_error
+    jev: JevResult | None  # None when Jev wasn't asked (fast path) or couldn't be reached (jev_error)
     jev_error: str | None = None
+    checked: bool = True  # False for read-only tools allowed by the fast path, without asking Jev
     latency_ms: float
     explanation: Explanation | None = None
     explanation_pending: bool = False

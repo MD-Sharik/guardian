@@ -14,6 +14,7 @@ from __future__ import annotations
 
 import asyncio
 import logging
+import re
 import time
 from collections.abc import Callable
 
@@ -44,6 +45,7 @@ class Guardian:
         self.tracer = NeatLogsTracer(settings)
         self.entire = EntireClient(settings)
         self.explainer = Explainer(settings)
+        self._fast_path = re.compile(settings.fast_path_tools) if settings.fast_path_tools else None
         self._resolved: dict[str, asyncio.Event] = {}
         self._tasks: set[asyncio.Task] = set()
 
@@ -97,13 +99,18 @@ class Guardian:
         start = time.perf_counter()
         if not req.context.history and req.session_id:
             req.context.history = self._session_history(req.session_id)
-        jev, jev_error = None, None
-        try:
-            jev = await self.jev.evaluate(req)
-            policy = decide(jev.signals, self.settings.thresholds)
-        except JevUnavailable as exc:
-            jev_error = str(exc)
-            policy = PolicyResult("ESCALATE", 0.0, [f"Jev could not be reached ({exc}), so a human must decide."])
+        jev, jev_error, checked = None, None, True
+        if self._fast_path and self._fast_path.fullmatch(req.tool):
+            # Read-only tool: allowed without spending a Jev call. Still recorded, streamed and traced.
+            checked = False
+            policy = PolicyResult("ALLOW", 1.0, ["Read-only tool: allowed by the fast path without a Jev check."])
+        else:
+            try:
+                jev = await self.jev.evaluate(req)
+                policy = decide(jev.signals, self.settings.thresholds)
+            except JevUnavailable as exc:
+                jev_error = str(exc)
+                policy = PolicyResult("ESCALATE", 0.0, [f"Jev could not be reached ({exc}), so a human must decide."])
         d = Decision(
             agent_name=req.agent_name,
             session_id=req.session_id,
@@ -116,6 +123,7 @@ class Guardian:
             reasons=policy.reasons,
             jev=jev,
             jev_error=jev_error,
+            checked=checked,
             latency_ms=(time.perf_counter() - start) * 1000,
             explanation_pending=policy.verdict != "ALLOW" and self.explainer.mode == "live",
         )
@@ -221,6 +229,16 @@ class Guardian:
             error=(req.error or "")[:MAX_OUTPUT_CHARS] or None,
         )
         return self._update(decision_id, lambda x: setattr(x, "result", result))
+
+    async def retry_traces(self) -> dict[str, int]:
+        """Re-send the traces NeatLogs didn't accept (e.g. during an ingest outage)."""
+        failed = [d for d in self.store.list(1000) if d.trace and d.trace.mode == "error"]
+        sent = 0
+        for d in failed:
+            trace = await self.tracer.record(d)  # rebuilt from the decision as it is now
+            self._update(d.id, lambda x, t=trace: setattr(x, "trace", t))
+            sent += trace is not None and trace.mode == "live"
+        return {"failed_before": len(failed), "sent": sent, "still_failing": len(failed) - sent}
 
     def clear(self) -> None:
         self.store.clear()

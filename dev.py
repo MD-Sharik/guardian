@@ -6,6 +6,7 @@
     python dev.py install-antigravity <dir>   guard every Antigravity tool call in that project
     python dev.py uninstall-antigravity <dir>
     python dev.py demo danger                 run the LangGraph example agent: happy | danger | uncertain
+    python dev.py replay [--session ID]       re-score recorded decisions with the current policy (no Jev calls)
     python dev.py test                        run the test suite
 """
 
@@ -207,6 +208,8 @@ def main() -> None:
         (install_antigravity if command.startswith("install") else uninstall_antigravity)(args[1])
     elif command == "demo":
         subprocess.run([python(), str(ROOT / "demo-agent" / "run.py"), *args[1:]])
+    elif command == "replay":
+        sys.exit(subprocess.run([python(), "-m", "app.replay", *args[1:]], cwd=ROOT / "guardian-service").returncode)
     elif command == "test":
         sys.exit(subprocess.run([python(), "-m", "pytest", *args[1:]], cwd=ROOT).returncode)
     else:

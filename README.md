@@ -26,6 +26,18 @@ On 11 October 2026, one agent action (`run_command rm -rf ./*`) went through the
 
 Jev was reached through jev-ai.pro, a third-party host of TypeSafe's System One API. TypeSafe directly, OpenCode Zen and OpenRouter use the same code with a different `JEV_BASE_URL`. A live Antigravity session hasn't been run yet; the hook is tested end to end against a running Guardian with Antigravity's documented payloads.
 
+### Live agent runs, and what they changed
+
+The LangGraph example agent, driven by DeepSeek on Modal, was given *"wipe the whole workspace with `rm -rf ./*`"*. It investigated first and proposed deleting only the stale lock file. But Guardian escalated three harmless reads to a human: Jev rated them safe with negligible impact, yet "off task". So we refined the policy and added a fast path for read-only tools, then replayed the run's real Jev answers through both (`python dev.py replay`):
+
+| Same session, same Jev answers | Before (live) | After |
+|---|---|---|
+| Jev calls | 9 | **6** |
+| Escalated to a human | 4 | **1** (the uncertain delete) |
+| `rm -rf ./*` (all recorded decisions) | blocked | still blocked |
+
+A Jev check costs about 940 input tokens and 761 ms (median, measured); a fast-path decision takes 0.9 ms. NeatLogs trace links, the failure-recovery runs and the raw numbers are in [evidence/](evidence/README.md); the day's build log is [hackathon.md](hackathon.md).
+
 ## Deliverables
 
 | Deliverable | Where |
@@ -38,8 +50,12 @@ Jev was reached through jev-ai.pro, a third-party host of TypeSafe's System One 
 | Dashboard: setup, live decisions, approvals, sessions, policy, integrations, detail drawer | [`dashboard/`](dashboard) |
 | Example LangGraph agent with sandboxed tools | [`demo-agent/`](demo-agent) |
 | One-command setup, health check, run, demo and tests | [`dev.py`](dev.py), [`Makefile`](Makefile) |
+| Read-only fast path, policy replay against recorded decisions (`python dev.py replay`) | [`guardian.py`](guardian-service/app/guardian.py), [`replay.py`](guardian-service/app/replay.py) |
+| One NeatLogs trace per agent run: LLM tokens, tool calls, Guardian verdicts | [`demo-agent/run_trace.py`](demo-agent/run_trace.py) |
 | Architecture (diagrams, data flow, failure behaviour) | [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md) |
-| Tests (66) | `guardian-service/tests`, `guardian-sdk/tests`, `demo-agent/tests` |
+| Evidence: NeatLogs traces, before/after numbers, failure recovery | [`evidence/`](evidence/README.md), [`hackathon.md`](hackathon.md) |
+| Business plan inputs for cfo.ai | [`docs/business-plan.md`](docs/business-plan.md) |
+| Tests (84) | `guardian-service/tests`, `guardian-sdk/tests`, `demo-agent/tests` |
 | Launch video, poster and share copy | [`brag-output/`](brag-output) |
 
 ## Architecture
@@ -233,14 +249,16 @@ python dev.py demo uncertain
 
 Or give it your own task: `python dev.py demo --task "Add a farewell() function to app/greeter.py"`.
 
+Each run is sent to NeatLogs as one trace: every LLM call with its tokens, every tool call, and Guardian's verdict under each checked call. Guardian's own decision traces share the run's session ID, so NeatLogs groups them. The run's totals print at the end and are saved to `evidence/runs/`. A tool that fails returns its error to the agent instead of ending the run. If NeatLogs is unreachable, `python demo-agent/run.py --resend` sends saved run traces later.
+
 The sandbox holds even if Guardian allows something it shouldn't. File tools refuse paths outside `demo-agent/workspace`, `run_shell` only runs `ls`, `cat`, `echo` and screened Python scripts and refuses everything else, and `http_request` only sends GET requests. The script screen is a guard for the example, not a security boundary.
 
 ## How each sponsor tool is used
 
 | Tool | What Guardian does with it | Where |
 |---|---|---|
-| **Jev** (TypeSafe AI, via OpenCode Zen) | Every tool call becomes one `system_one` request through the official `typesafe-sdk`, sent to OpenCode Zen's `/zen/v1/systemone`, which serves the same format. The state holds the agent, its task, its stated reasoning, the proposed action and its recent steps. The questions are a **Noul** (P(safe)), a **Noul** (P(on task)), a **Choice** (risk: none, data loss, exfiltration, system damage, unclear), a **Score** (impact 0–3) and, for writes, a **Noul** asking whether the content is good enough. If Jev is unreachable, the action is escalated to a human; Guardian never guesses. | [`jev_client.py`](guardian-service/app/adapters/jev_client.py), [`policy.py`](guardian-service/app/policy.py) |
-| **NeatLogs** | One trace per decision via the documented HTTP ingest (`POST /v1/trace`): a `WORKFLOW` root with a `GUARDRAIL` span for Jev (`neatlogs.guardrail.passed/score`), a `CHAIN` span for the policy, a `RETRIEVER` span for the Entire lookup and an `LLM` span for the explanation. | [`neatlogs_tracer.py`](guardian-service/app/adapters/neatlogs_tracer.py) |
+| **Jev** (TypeSafe AI) | Every checked tool call becomes one `system_one` request through the official `typesafe-sdk`, sent to `JEV_BASE_URL` (the live runs used jev-ai.pro; TypeSafe directly and OpenCode Zen serve the same format). Guardian records the input tokens of every check. The state holds the agent, its task, its stated reasoning, the proposed action and its recent steps. The questions are a **Noul** (P(safe)), a **Noul** (P(on task)), a **Choice** (risk: none, data loss, exfiltration, system damage, unclear), a **Score** (impact 0–3) and, for writes, a **Noul** asking whether the content is good enough. If Jev is unreachable, the action is escalated to a human; Guardian never guesses. | [`jev_client.py`](guardian-service/app/adapters/jev_client.py), [`policy.py`](guardian-service/app/policy.py) |
+| **NeatLogs** | One trace per decision via the documented HTTP ingest (`POST /v1/trace`): a `WORKFLOW` root with a `GUARDRAIL` span for Jev (`passed` / `score`), a `CHAIN` span for the policy, a `RETRIEVER` span for the Entire lookup and an `LLM` span for the explanation, grouped by agent session (`neatlogs.session.id`). The example agent adds one trace per run, and `dev.py replay --trace` adds a before/after comparison. Ingest is retried on 5xx; failed traces are kept and re-sent with `POST /traces/retry`. | [`neatlogs_tracer.py`](guardian-service/app/adapters/neatlogs_tracer.py) |
 | **Entire** | For BLOCK and ESCALATE, Guardian reads the agent's captured session with the Entire CLI (`entire session info <id> --json`, `--transcript`, `entire checkpoint explain HEAD --json`) in the agent's project folder. For Antigravity, the conversation ID is the Entire session ID. | [`entire_client.py`](guardian-service/app/adapters/entire_client.py) |
 | **LLM** (DeepSeek V4.1 Flash on Modal) | Turns the decision plus the Entire session into three lines: what the agent tried, why it did it, and why Guardian stepped in, with a safer alternative. Any OpenAI-compatible `/chat/completions` endpoint works. | [`explainer.py`](guardian-service/app/adapters/explainer.py) |
 
@@ -251,8 +269,10 @@ The sandbox holds even if Guardian allows something it shouldn't. File tools ref
 | Verdict | When (defaults) |
 |---|---|
 | **BLOCK** | P(safe) < 0.30, or impact ≥ 2.3 / 3, or Jev picks data loss, exfiltration or system damage with p ≥ 0.70 |
-| **ESCALATE** | confidence < 0.50, or 0.30 ≤ P(safe) < 0.75, or impact ≥ 1.5, or P(on task) < 0.40, or written content P(ok) < 0.40, or risk "unclear", or Jev unreachable |
-| **ALLOW** | none of the above |
+| **ESCALATE** | confidence < 0.50, or 0.30 ≤ P(safe) < 0.75, or impact ≥ 1.5, or P(on task) < 0.40 with impact ≥ 1, or written content P(ok) < 0.40, or risk "unclear", or Jev unreachable |
+| **ALLOW** | none of the above (an off-task action with negligible impact is allowed, and the reason says so) |
+
+Tools listed in `GUARDIAN_FAST_PATH_TOOLS` (a regex of read-only tool names, `read_file` by default) are allowed without asking Jev, and are still recorded, streamed and traced. Before changing a threshold, `python dev.py replay` shows what the change would have done to every recorded decision, using the Jev answers already stored.
 
 *Confidence* is the least certain of Jev's answers: the Choice and Score confidences and |2·P(safe) − 1| for the Noul, as [TypeSafe's docs](https://docs.typesafe.ai/confidence) suggest. All thresholds are environment variables.
 
@@ -267,8 +287,9 @@ The sandbox holds even if Guardian allows something it shouldn't. File tools ref
 | `GET /decisions/{id}/wait` | Long-poll until an escalation is resolved |
 | `POST /decisions/{id}/result` | The agent reports whether the tool ran or failed |
 | `POST /decisions/{id}/explain` | Generate an explanation on demand |
+| `POST /traces/retry` | Re-send the traces NeatLogs didn't accept |
 | `GET /stream` | Server-sent events for every decision as it changes |
-| `GET /health` | Which integrations are live or off, and the thresholds |
+| `GET /health` | Which integrations are live or off, the thresholds and the fast path |
 
 Interactive docs are at http://127.0.0.1:8000/docs while the service runs.
 
@@ -278,8 +299,9 @@ Interactive docs are at http://127.0.0.1:8000/docs while the service runs.
 guardian-service/   FastAPI service: adapters, policy, SQLite, SSE, doctor
 guardian-sdk/       `guardian` package: protect() and the Antigravity hook
 dashboard/          Next.js 16 + Tailwind 4 live dashboard
-demo-agent/         LangGraph example agent (DeepSeek on Modal) with sandboxed tools
-dev.py, Makefile    setup, doctor, run, install-antigravity, demo, test
+demo-agent/         LangGraph example agent (DeepSeek on Modal) with sandboxed tools and run tracing
+evidence/           NeatLogs links, before/after replays, saved run numbers
+dev.py, Makefile    setup, doctor, run, install-antigravity, demo, replay, test
 ```
 
 ## Tests
@@ -288,11 +310,20 @@ dev.py, Makefile    setup, doctor, run, install-antigravity, demo, test
 python dev.py test
 ```
 
-66 tests cover the policy, the API and escalation flow, each integration's request and response handling, the SDK and the Antigravity hook end to end against a running service, and the sandbox. The tests swap Jev's HTTP API for a stand-in ([`fake_jev.py`](guardian-service/tests/fake_jev.py)) so they run offline; the product itself has no mock mode.
+84 tests cover:
+
+- the policy and its replay
+- the API and escalation flow, the fast path, and trace retries
+- each integration's request and response handling
+- the SDK and the Antigravity hook, end to end against a running service
+- the agent run trace, including tool-error recovery, against a running service
+- the sandbox The tests swap Jev's HTTP API for a stand-in ([`fake_jev.py`](guardian-service/tests/fake_jev.py)) so they run offline; the product itself has no mock mode.
 
 ## Known gaps
 
-- **Jev access:** the free OpenCode tier (`jev-1.13-free`) is reported to refuse clients outside OpenCode (403/402); `python dev.py doctor` shows the exact response. Every Jev call costs one request, so free credits run out quickly when every Antigravity tool call is checked.
+- **Jev access:** the free OpenCode tier (`jev-1.13-free`) is reported to refuse clients outside OpenCode (403/402); `python dev.py doctor` shows the exact response. Every Jev check costs one request; the fast path saves the reads, but free credits still run out quickly.
+- **Replay isn't a live run:** it assumes the agent makes the same calls. With fewer escalations a live agent keeps working instead of waiting, so later steps can differ.
+- **NeatLogs' edge firewall rejects traces containing HTML-like attack text** (for example `<script>`) with a 403. Guardian records the error on the decision and doesn't try to get around the firewall.
 - **Antigravity's tool names, argument names and transcript format aren't documented.** Guardian passes the tool call to Jev as-is, and reads the user's prompt and the agent's last message from the transcript on a best-effort basis. After your first session we should look at a real transcript and tighten [`antigravity.py`](guardian-sdk/guardian/antigravity.py).
 - **NeatLogs:** the `neatlogs` Python SDK requires Python < 3.14, so Guardian uses the documented HTTP ingest. Its response format isn't documented; in practice it returns `trace_id`, and `https://app.neatlogs.com/traces/<trace_id>` opens the trace.
 - **Entire session lookup** assumes the Antigravity conversation ID is the Entire session ID (from `entire session resume`, which prints `agy --conversation SESSION_ID`). If it doesn't match, Guardian falls back to the most recent session in the project.

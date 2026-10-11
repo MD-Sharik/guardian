@@ -51,7 +51,7 @@ function NeedsAttention() {
   const { decisions, inRange, now, open, resolve } = useGuardian();
   const pending = decisions.filter((d) => d.status === "pending").reverse();
   const blocks = inRange.filter((d) => d.verdict === "BLOCK").slice(0, 5);
-  const jevDown = inRange.filter((d) => !d.jev).length;
+  const jevDown = inRange.filter((d) => !d.jev && d.checked !== false).length;
   const traceErrors = inRange.filter((d) => d.trace?.mode === "error").length;
   const items = pending.length + blocks.length + (jevDown ? 1 : 0) + (traceErrors ? 1 : 0);
 

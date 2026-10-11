@@ -15,10 +15,13 @@ def isolate_env(monkeypatch, tmp_path, jev_key="test-key"):
     even if the developer's .env has real keys."""
     monkeypatch.setenv("JEV_API_KEY", jev_key)
     monkeypatch.setenv("TYPESAFE_API_KEY", "")
+    monkeypatch.setenv("JEV_BASE_URL", "")
+    monkeypatch.setenv("JEV_MODEL", "")
     monkeypatch.setenv("NEATLOGS_API_KEY", "")
     for name in ("LLM_BASE_URL", "LLM_API_KEY", "MODAL_PROXY_TOKEN_ID", "MODAL_PROXY_TOKEN_SECRET"):
         monkeypatch.setenv(name, "")
     monkeypatch.setenv("ENTIRE_BIN", "entire-not-installed-for-tests")
+    monkeypatch.setenv("GUARDIAN_FAST_PATH_TOOLS", "")
     monkeypatch.setenv("GUARDIAN_DB_PATH", str(tmp_path / "test.db"))
 
 
@@ -37,8 +40,10 @@ def make_client(tmp_path, monkeypatch):
 
     clients = []
 
-    def make(handler=fake_jev.handler):
+    def make(handler=fake_jev.handler, **env):
         isolate_env(monkeypatch, tmp_path)
+        for name, value in env.items():
+            monkeypatch.setenv(name, value)
         use_fake_jev(monkeypatch, handler)
         client = TestClient(app)
         client.__enter__()

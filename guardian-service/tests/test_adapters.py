@@ -93,6 +93,7 @@ def test_jev_request_and_parsing():
     assert len(body["questions"]["severity"]["criteria"]) == 4
 
     assert result.model == "jev-1.13.0"
+    assert result.input_tokens == 512  # recorded so cost per check can be measured
     s = result.signals
     assert (s.p_safe, s.risk, s.severity) == (0.04, "data_loss", 2.86)
     assert s.severity_probabilities["3"] == 0.88
@@ -165,7 +166,8 @@ def test_neatlogs_ingest():
     assert body["project"] == "guardian"
     assert body["metadata"]["guardian.source"] == "antigravity"
     assert body["children"][0]["kind"] == "GUARDRAIL"
-    assert body["children"][0]["attributes"]["neatlogs.guardrail.passed"] is False
+    assert body["children"][0]["passed"] is False
+    assert body["attributes"]["neatlogs.session.id"] == d.session_id
     assert "trace_id" not in body  # NeatLogs generates IDs
     assert not has_null(body)  # ingest rejects null fields with a 400
     assert ref.mode == "live" and ref.trace_id == "tr_123"
@@ -186,10 +188,40 @@ def test_neatlogs_traces_a_jev_outage_too():
     assert seen["body"]["children"][0] == {"name": "jev.system_one", "kind": "GUARDRAIL", "status": "error", "error": "503"}
 
 
+def test_neatlogs_fast_path_trace_has_no_jev_span():
+    seen = {}
+
+    def handler(request):
+        seen["body"] = json.loads(request.content)
+        return httpx.Response(200, json={})
+
+    tracer = NeatLogsTracer(Settings(neatlogs_api_key="k"), transport=httpx.MockTransport(handler))
+    run(tracer.record(make_decision(jev=None, checked=False, verdict="ALLOW", status="allowed")))
+    body = seen["body"]
+    assert [c["name"] for c in body["children"]] == ["guardian.policy"]
+    assert body["metadata"]["guardian.checked"] is False
+    assert not has_null(body)
+
+
 def test_neatlogs_failure_is_reported():
-    tracer = NeatLogsTracer(Settings(neatlogs_api_key="k"), transport=httpx.MockTransport(lambda r: httpx.Response(401)))
+    calls = []
+
+    def handler(request):
+        calls.append(request)
+        return httpx.Response(401)
+
+    tracer = NeatLogsTracer(Settings(neatlogs_api_key="k"), transport=httpx.MockTransport(handler), backoff_s=0)
     ref = run(tracer.record(make_decision()))
     assert ref.mode == "error" and "401" in ref.error and ref.payload["children"]
+    assert len(calls) == 1  # a rejected payload isn't resent
+
+
+def test_neatlogs_outage_is_retried():
+    replies = iter([httpx.Response(503, text="Service Temporarily Unavailable"), httpx.Response(200, json={"trace_id": "t"})])
+    tracer = NeatLogsTracer(Settings(neatlogs_api_key="k"), transport=httpx.MockTransport(lambda r: next(replies)),
+                            backoff_s=0)
+    ref = run(tracer.record(make_decision()))
+    assert ref.mode == "live" and ref.trace_id == "t"
 
 
 def entire_with(monkeypatch, outputs):

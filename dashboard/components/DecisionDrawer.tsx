@@ -186,6 +186,15 @@ function Explanation({
 }
 
 function JevAnswers({ d, t }: { d: Decision; t: Thresholds }) {
+  if (d.checked === false) {
+    return (
+      <Section title="Jev's answers" aside="not asked">
+        <p className="text-sm text-muted">
+          {d.tool} is on the read-only fast path, so Guardian allowed it without spending a Jev check.
+        </p>
+      </Section>
+    );
+  }
   if (!d.jev) {
     return (
       <Section title="Jev's answers" aside="unreachable">

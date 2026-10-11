@@ -49,7 +49,7 @@ export function DecisionTable({ decisions, showAgent = true }: { decisions: Deci
                 <ConfidenceBar value={d.confidence} threshold={threshold} />
               </td>
               <td className="px-4 py-2.5 text-right font-mono text-xs whitespace-nowrap text-muted tabular-nums">
-                {d.jev ? `${Math.round(d.jev.latency_ms)} ms` : "down"}
+                {d.jev ? `${Math.round(d.jev.latency_ms)} ms` : d.checked === false ? "fast path" : "down"}
               </td>
             </tr>
           ))}

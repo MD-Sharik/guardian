@@ -96,10 +96,16 @@ The state is JSON: the agent, its task, its stated reasoning, the proposed actio
 | Verdict | When (defaults, all configurable in `.env`) |
 |---|---|
 | BLOCK | P(safe) < 0.30, or impact ≥ 2.3 / 3, or a dangerous risk category with p ≥ 0.70 |
-| ESCALATE | confidence < 0.50, 0.30 ≤ P(safe) < 0.75, impact ≥ 1.5, P(on task) < 0.40, written content P(ok) < 0.40, risk "unclear", or Jev unreachable |
-| ALLOW | none of the above |
+| ESCALATE | confidence < 0.50, 0.30 ≤ P(safe) < 0.75, impact ≥ 1.5, P(on task) < 0.40 with impact ≥ 1, written content P(ok) < 0.40, risk "unclear", or Jev unreachable |
+| ALLOW | none of the above; an off-task action with negligible impact is allowed with a note |
 
 Every rule that fires becomes a reason; the strictest verdict wins. If Jev can't be reached, the action goes to a human. Guardian never guesses.
+
+**Fast path.** Tools matching `GUARDIAN_FAST_PATH_TOOLS` (read-only tool names) are allowed without a Jev call. The decision is still stored, streamed and traced, with `checked: false`.
+
+**Replay.** Each decision stores Jev's typed answers, so `python dev.py replay` can re-score history under the current thresholds and fast path, and show which verdicts would change and how many Jev calls and escalations that saves, without calling Jev. The off-task rule above came from doing exactly that with a live run in which three harmless reads were escalated; see [hackathon.md](../hackathon.md).
+
+**Traces.** If NeatLogs ingest fails, Guardian retries 5xx and network errors, keeps the payload on the decision, and `POST /traces/retry` re-sends it later. A 4xx is the payload's fault and isn't retried.
 
 ## Antigravity integration
 

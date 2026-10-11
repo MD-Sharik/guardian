@@ -6,9 +6,11 @@ human-readable reason, and the most severe verdict wins:
   BLOCK     P(safe) is very low, the impact is rated critical, or Jev
             confidently puts the action in a dangerous risk category.
   ESCALATE  Jev is not confident, the action is not clearly safe, the
-            impact is serious, the action looks off-task, or the content
-            being written looks poor.
-  ALLOW     none of the above.
+            impact is serious, the action looks off-task and could change
+            something, or the content being written looks poor.
+  ALLOW     none of the above. An off-task action with negligible impact
+            (an agent reading around while it investigates) is allowed, and
+            the reason says so.
 """
 
 from __future__ import annotations
@@ -58,7 +60,8 @@ def decide(s: JevSignals, t: Thresholds) -> PolicyResult:
         escalate.append(f"Not confidently safe (P(safe) = {s.p_safe:.2f}).")
     if t.severity_escalate <= s.severity < t.severity_block:
         escalate.append(f"Potential impact rated {severity_label(s.severity)} ({s.severity:.1f} / 3).")
-    if s.p_on_task < t.on_task_min:
+    off_task = s.p_on_task < t.on_task_min
+    if off_task and s.severity >= t.off_task_severity:
         escalate.append(f"Looks unrelated to the agent's task (P(on task) = {s.p_on_task:.2f}).")
     if s.output_ok is not None and s.output_ok < t.output_ok_min:
         escalate.append(f"Content being written looks incomplete or wrong (P(ok) = {s.output_ok:.2f}).")
@@ -69,8 +72,8 @@ def decide(s: JevSignals, t: Thresholds) -> PolicyResult:
         return PolicyResult("BLOCK", s.confidence, block + escalate)
     if escalate:
         return PolicyResult("ESCALATE", s.confidence, escalate)
-    return PolicyResult(
-        "ALLOW",
-        s.confidence,
-        [f"Jev rates this action safe (P(safe) = {s.p_safe:.2f}, impact {severity_label(s.severity)})."],
-    )
+    reasons = [f"Jev rates this action safe (P(safe) = {s.p_safe:.2f}, impact {severity_label(s.severity)})."]
+    if off_task:
+        reasons.append(f"It looks unrelated to the task (P(on task) = {s.p_on_task:.2f}), but its impact is "
+                       f"{severity_label(s.severity)}, so it doesn't need a human.")
+    return PolicyResult("ALLOW", s.confidence, reasons)

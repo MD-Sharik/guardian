@@ -80,6 +80,7 @@ def health(request: Request) -> dict:
         "neatlogs_project": guardian.settings.neatlogs_project,
         "neatlogs_app_url": guardian.settings.neatlogs_app_url,
         "escalation_timeout_s": guardian.settings.escalation_timeout_s,
+        "fast_path_tools": guardian.settings.fast_path_tools,
     }
 
 
@@ -137,6 +138,13 @@ async def explain(decision_id: str, request: Request) -> Decision:
     if g(request).explainer.mode == "off":
         raise HTTPException(409, "The explainer is off. Set LLM_BASE_URL and MODAL_PROXY_TOKEN_ID/SECRET (or LLM_API_KEY).")
     return found(await g(request).explain(decision_id))
+
+
+@app.post("/traces/retry")
+async def retry_traces(request: Request) -> dict:
+    if g(request).tracer.mode == "off":
+        raise HTTPException(409, "NeatLogs is off. Set NEATLOGS_API_KEY.")
+    return await g(request).retry_traces()
 
 
 @app.get("/stream")

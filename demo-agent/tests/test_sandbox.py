@@ -35,6 +35,17 @@ def test_destructive_shell_commands_are_refused(workspace):
     assert sorted(p.name for p in workspace.iterdir()) == before
 
 
+@pytest.mark.parametrize("command", ["ls; rm -rf ./*", "cat README.md | head", "echo x > app/greeter.py",
+                                     "ls && cat README.md", "echo $(whoami)"])
+def test_one_command_at_a_time(command):
+    assert "one command at a time" in sb.run_shell.invoke({"command": command})
+
+
+def test_ls_lists_folders_and_names_files():
+    assert sb.run_shell.invoke({"command": "ls -la app README.md"}) == "app:\napp/greeter.py\n\nREADME.md"
+    assert "No such file" in sb.run_shell.invoke({"command": "ls missing"})
+
+
 def test_python_scripts_are_screened(workspace):
     (workspace / "evil.py").write_text("import shutil\nshutil.rmtree('/')\n")
     assert "refused" in sb.run_shell.invoke({"command": "python evil.py"})

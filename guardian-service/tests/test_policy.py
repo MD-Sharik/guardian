@@ -43,7 +43,7 @@ def test_block_rules(overrides):
         {"confidence": 0.3},
         {"p_safe": 0.6},
         {"severity": 1.8},
-        {"p_on_task": 0.2},
+        {"p_on_task": 0.2, "severity": 1.1},  # off-task and could change something
         {"output_ok": 0.2},
         {"risk": "unclear", "risk_probabilities": {**SAFE["risk_probabilities"], "unclear": 0.4}},
         # a dangerous category Jev isn't sure about is a question for a human, not a block
@@ -52,6 +52,14 @@ def test_block_rules(overrides):
 )
 def test_escalate_rules(overrides):
     assert verdict(**overrides) == "ESCALATE"
+
+
+def test_harmless_off_task_actions_are_allowed_with_a_note():
+    # From a live run: the agent read README.md while investigating; Jev called it off-task but harmless.
+    result = decide(signals(p_safe=0.94, p_on_task=0.25, severity=0.33, confidence=0.66), Thresholds())
+    assert result.verdict == "ALLOW"
+    assert any("unrelated to the task" in r for r in result.reasons)
+    assert decide(signals(p_on_task=0.25, severity=0.33), Thresholds(off_task_severity=0.0)).verdict == "ESCALATE"
 
 
 def test_block_wins_and_keeps_every_reason():

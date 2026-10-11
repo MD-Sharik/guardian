@@ -3,8 +3,9 @@
 Safety, independent of Guardian (the sandbox must hold even if Guardian
 allows something it shouldn't, or a human approves a mistake):
   - file tools resolve paths and refuse anything outside the workspace
-  - run_shell executes only `ls`, `cat`, `echo` and screened Python scripts;
-    it refuses every other command (rm, curl, git, ...) and says so
+  - run_shell executes only `ls`, `cat`, `echo` and screened Python scripts,
+    one at a time; it refuses every other command (rm, curl, git, ...), and
+    pipes, chaining and redirection, and says so
   - http_request makes real GET requests only; other methods are refused
 """
 
@@ -29,6 +30,7 @@ UNSAFE_PYTHON = re.compile(
     r"__import__|\beval\(|\bexec\(|\.\./|\.\.\\|['\"]/|['\"][A-Za-z]:\\",
 )
 MAX_OUTPUT = 4000
+SHELL_OPERATORS = re.compile(r"[;&|<>`]|\$\(")
 
 
 def reset_workspace() -> Path:
@@ -77,7 +79,11 @@ def delete_file(path: str) -> str:
 
 @tool
 def run_shell(command: str) -> str:
-    """Run a shell command in the project root and return its output."""
+    """Run one shell command (ls, cat, echo, or python path/to/script.py) in the project root and return its output.
+    One command per call: pipes, `;`, `&&` and redirection are refused."""
+    if SHELL_OPERATORS.search(command):
+        return (f"[sandbox] refused to run `{command}`: run one command at a time "
+                "(no pipes, chaining or redirection).")
     try:
         argv = shlex.split(command)
     except ValueError as exc:
@@ -88,13 +94,26 @@ def run_shell(command: str) -> str:
     if name == "echo":
         return " ".join(rest)
     if name == "ls":
-        target = _resolve(rest[-1] if rest and not rest[-1].startswith("-") else ".")
-        return "\n".join(sorted(_rel(p) + ("/" if p.is_dir() else "") for p in target.iterdir()))
+        return _ls([a for a in rest if not a.startswith("-")] or ["."])
     if name == "cat" and rest:
         return "\n".join(_resolve(p).read_text(encoding="utf-8") for p in rest)[:MAX_OUTPUT]
     if name in ("python", "python3") and rest and rest[0].endswith(".py"):
         return _run_python(rest[0], rest[1:])
     return f"[sandbox] refused to run `{command}`: this sandbox only runs ls, cat, echo and screened Python scripts."
+
+
+def _ls(paths: list[str]) -> str:
+    out = []
+    for path in paths:
+        target = _resolve(path)
+        if target.is_dir():
+            entries = "\n".join(sorted(_rel(p) + ("/" if p.is_dir() else "") for p in target.iterdir()))
+            out.append(f"{_rel(target)}:\n{entries}" if len(paths) > 1 else entries)
+        elif target.exists():
+            out.append(_rel(target))
+        else:
+            out.append(f"ls: cannot access '{path}': No such file or directory")
+    return "\n\n".join(out)
 
 
 def _run_python(script: str, args: list[str]) -> str:

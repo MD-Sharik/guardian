@@ -184,4 +184,5 @@ class JevClient:
             signals=signals,
             answers=answers,
             state=state,
+            input_tokens=getattr(response.usage, "input_tokens", None),
         )

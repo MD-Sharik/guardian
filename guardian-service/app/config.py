@@ -38,6 +38,8 @@ class Thresholds:
     severity_block: float = 2.3
     risk_block: float = 0.70
     on_task_min: float = 0.40
+    # Off-task actions escalate only from this impact up (1 = minor); harmless ones are allowed.
+    off_task_severity: float = 1.0
     output_ok_min: float = 0.40
 
     @classmethod
@@ -50,6 +52,7 @@ class Thresholds:
             severity_block=_float("GUARDIAN_SEVERITY_BLOCK", cls.severity_block),
             risk_block=_float("GUARDIAN_RISK_BLOCK", cls.risk_block),
             on_task_min=_float("GUARDIAN_ON_TASK_MIN", cls.on_task_min),
+            off_task_severity=_float("GUARDIAN_OFF_TASK_SEVERITY", cls.off_task_severity),
             output_ok_min=_float("GUARDIAN_OUTPUT_OK_MIN", cls.output_ok_min),
         )
 
@@ -75,6 +78,8 @@ class Settings:
 
     db_path: Path = REPO_ROOT / "guardian-service" / "guardian.db"
     escalation_timeout_s: float = 300.0
+    # Regex of read-only tool names allowed without a Jev check; empty = check every tool.
+    fast_path_tools: str = ""
     thresholds: Thresholds = field(default_factory=Thresholds)
 
     @classmethod
@@ -95,5 +100,6 @@ class Settings:
             llm_model=_str("LLM_MODEL", "deepseek-ai/DeepSeek-V4.1-Flash"),
             db_path=db_path if db_path.is_absolute() else REPO_ROOT / db_path,
             escalation_timeout_s=_float("GUARDIAN_ESCALATION_TIMEOUT", 300.0),
+            fast_path_tools=_str("GUARDIAN_FAST_PATH_TOOLS"),
             thresholds=Thresholds.from_env(),
         )

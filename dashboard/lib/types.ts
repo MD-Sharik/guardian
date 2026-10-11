@@ -19,6 +19,7 @@ export interface JevResult {
   model: string;
   latency_ms: number;
   signals: JevSignals;
+  input_tokens?: number | null;
   answers: Record<string, unknown>;
   state: Record<string, unknown>;
 }
@@ -58,6 +59,7 @@ export interface Decision {
   confidence: number;
   reasons: string[];
   jev: JevResult | null;
+  checked: boolean;
   jev_error: string | null;
   latency_ms: number;
   explanation: { text: string; model: string; generated_at: number } | null;
@@ -79,6 +81,7 @@ export interface Thresholds {
   severity_block: number;
   risk_block: number;
   on_task_min: number;
+  off_task_severity: number;
   output_ok_min: number;
 }
 
