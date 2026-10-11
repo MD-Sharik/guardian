@@ -113,10 +113,22 @@ Five decision traces kept failing with an HTML 403 from NeatLogs' edge, even aft
 - 84 tests pass.
 - All four integrations live: Jev 1.13 via jev-ai.pro, NeatLogs, Entire CLI 0.11.4, DeepSeek V4.1 Flash on Modal.
 
+### Architecture docs, captured as the Entire checkpoint (20:54 IST)
+
+A fresh Claude Code session split the architecture into a [high-level design](docs/ARCHITECTURE.md) and a [low-level design](docs/ARCHITECTURE-LOW-LEVEL.md), written from the code. We attached that session to its commit with `entire session attach`: checkpoint **`01M4NS3PV7C9FHQP1RBW6WDEYD`** on commit `0bdf7a4` ([view on Entire](https://entire.io/gh/MD-Sharik/guardian/commit/0bdf7a4e15c03c9ea7785de3b140fa9eb9319565)).
+
+We used a fresh session on purpose. The main build session contains screenshots of provider dashboards, and Entire publishes images without redaction. We also turned on Entire's PII and custom key redaction, and checked the checkpoint locally (no credentials, images or email) before pushing.
+
+Writing the low-level design surfaced four issues, now listed under "Open points" in that document:
+
+- Python 3.10 timeout handling
+- endpoints run in the thread pool touching asyncio objects
+- a slow dashboard connection that stops getting updates
+- pending escalations that don't expire after a restart
+
 ## Still to do before submission (12 October, 11:55 PM IST)
 
-- [ ] Rotate the Jev key and Modal token; they appeared in a chat transcript.
-- [ ] Entire: connect the repo at entire.io, create a checkpoint from a fresh agent session, and add its link and ID to [evidence/README.md](evidence/README.md).
+- [x] Entire: checkpoint `01M4NS3PV7C9FHQP1RBW6WDEYD`, linked in [evidence/README.md](evidence/README.md).
 - [ ] cfo.ai: build the business plan from [docs/business-plan.md](docs/business-plan.md) and link it.
 - [ ] Live "after" agent run with the fast path and refined policy, which needs Jev credits.
 - [ ] Demo video, #neatHack posts ([drafts](docs/neathack-posts.md)), submission post.

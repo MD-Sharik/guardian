@@ -46,7 +46,14 @@ All 14 recorded decisions ([data](replays/20261011-200040-all.json)): Jev calls 
 
 ## Entire checkpoint
 
-*To add: checkpoint ID and link, `https://entire.io/gh/MD-Sharik/guardian/commit/<full commit sha>`.*
+| | |
+|---|---|
+| Checkpoint ID | `01M4NS3PV7C9FHQP1RBW6WDEYD` |
+| Link | [entire.io/gh/MD-Sharik/guardian/commit/0bdf7a4e15c03c9ea7785de3b140fa9eb9319565](https://entire.io/gh/MD-Sharik/guardian/commit/0bdf7a4e15c03c9ea7785de3b140fa9eb9319565) |
+| Commit | `0bdf7a4`: Split the architecture into high-level and low-level designs |
+| Session | The Claude Code session that wrote [docs/ARCHITECTURE.md](../docs/ARCHITECTURE.md) and [docs/ARCHITECTURE-LOW-LEVEL.md](../docs/ARCHITECTURE-LOW-LEVEL.md), attached with `entire session attach` |
+
+The checkpoint is stored in this repo as `refs/entire/checkpoints/YD/01M4NS3PV7C9FHQP1RBW6WDEYD`. Before it was pushed we checked its contents locally: no credentials, no images, and email addresses replaced by Entire's PII redaction.
 
 ## cfo.ai business plan
 
