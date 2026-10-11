@@ -1,0 +1,6 @@
+# Everything Python in the monorepo, installed into one venv from the repo root:
+#   pip install -r requirements.txt
+-r guardian-service/requirements.txt
+-r demo-agent/requirements.txt
+-e ./guardian-sdk
+pytest>=8

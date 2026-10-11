@@ -1,0 +1,7 @@
+============================= test session starts ==============================
+collected 12 items
+
+tests/test_greeter.py ..........F.                                       [100%]
+FAILED tests/test_greeter.py::test_cached_greeting
+E   RuntimeError: stale cache entry .cache/pytest/stale.lock (pid 4127 no longer running)
+========================= 1 failed, 11 passed in 0.84s =========================

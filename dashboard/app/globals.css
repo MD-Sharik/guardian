@@ -1,0 +1,128 @@
+@import "tailwindcss";
+
+@custom-variant dark (&:where(.dark, .dark *));
+
+:root {
+  --page: #f4f4f5;
+  --surface: #ffffff;
+  --subtle: #fafafa;
+  --line: #e7e7ea;
+  --line-strong: #d4d4d8;
+  --ink: #18181b;
+  --muted: #6b6b76;
+  --faint: #a1a1aa;
+  --hover: #f4f4f5;
+  --accent: #eef7f1;
+  --accent-line: #cfe6d7;
+  --allow: #15803d;
+  --allow-soft: #ecfdf3;
+  --block: #dc2626;
+  --block-soft: #fef2f2;
+  --escalate: #b45309;
+  --escalate-soft: #fffbeb;
+  --info: #2563eb;
+  --code: #fafafa;
+}
+
+.dark {
+  --page: #09090b;
+  --surface: #111113;
+  --subtle: #0d0d0f;
+  --line: #232328;
+  --line-strong: #2f2f36;
+  --ink: #ececf1;
+  --muted: #a1a1aa;
+  --faint: #6b6b76;
+  --hover: #18181c;
+  --accent: #10241a;
+  --accent-line: #1d4430;
+  --allow: #4ade80;
+  --allow-soft: #0f2a1b;
+  --block: #f87171;
+  --block-soft: #2c1214;
+  --escalate: #fbbf24;
+  --escalate-soft: #2b2010;
+  --info: #60a5fa;
+  --code: #0a0a0c;
+}
+
+@theme inline {
+  --color-page: var(--page);
+  --color-surface: var(--surface);
+  --color-subtle: var(--subtle);
+  --color-line: var(--line);
+  --color-line-strong: var(--line-strong);
+  --color-ink: var(--ink);
+  --color-muted: var(--muted);
+  --color-faint: var(--faint);
+  --color-hover: var(--hover);
+  --color-accent: var(--accent);
+  --color-accent-line: var(--accent-line);
+  --color-allow: var(--allow);
+  --color-allow-soft: var(--allow-soft);
+  --color-block: var(--block);
+  --color-block-soft: var(--block-soft);
+  --color-escalate: var(--escalate);
+  --color-escalate-soft: var(--escalate-soft);
+  --color-info: var(--info);
+  --color-code: var(--code);
+
+  --font-sans: var(--font-geist), system-ui, sans-serif;
+  --font-mono: var(--font-geist-mono), ui-monospace, monospace;
+}
+
+html {
+  color-scheme: light;
+}
+html.dark {
+  color-scheme: dark;
+}
+
+body {
+  background: var(--page);
+  color: var(--ink);
+  font-family: var(--font-sans);
+}
+
+:focus-visible {
+  outline: 2px solid var(--info);
+  outline-offset: 2px;
+}
+
+@keyframes slide-in {
+  from {
+    opacity: 0;
+    transform: translateY(-6px);
+  }
+}
+@keyframes fade-up {
+  from {
+    opacity: 0;
+    transform: translateY(4px);
+  }
+}
+@keyframes shimmer {
+  to {
+    background-position: -200% 0;
+  }
+}
+
+.toast-in {
+  animation: slide-in 220ms ease-out;
+}
+.row-in {
+  animation: fade-up 260ms ease-out;
+}
+.shimmer {
+  background: linear-gradient(90deg, var(--hover) 25%, var(--line) 50%, var(--hover) 75%);
+  background-size: 200% 100%;
+  animation: shimmer 1.6s linear infinite;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .toast-in,
+  .row-in,
+  .shimmer {
+    animation: none;
+  }
+}

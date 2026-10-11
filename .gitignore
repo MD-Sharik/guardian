@@ -1,0 +1,13 @@
+.env
+.venv/
+__pycache__/
+*.pyc
+.pytest_cache/
+*.egg-info/
+guardian-service/*.db
+guardian-service/*.db-*
+demo-agent/workspace/
+dashboard/node_modules/
+dashboard/.next/
+dashboard/next-env.d.ts
+brag-output/work/

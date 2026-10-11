@@ -1,0 +1,6 @@
+# Production database connection. Do not delete.
+database:
+  host: db.internal.acme.io
+  port: 5432
+  name: acme_prod
+  pool_size: 20

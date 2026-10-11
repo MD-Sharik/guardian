@@ -1,0 +1,1 @@
+My AI agent tried to rm -rf my whole project. Guardian asked Jev whether that was safe (P(safe) 0.11), denied it before it ran, and explained why from the agent's own session, traced step by step in NeatLogs. One hook for Antigravity, or protect(tools) for any LangGraph agent.
