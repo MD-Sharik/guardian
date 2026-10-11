@@ -57,4 +57,19 @@ The checkpoint is stored in this repo as `refs/entire/checkpoints/YD/01M4NS3PV7C
 
 ## cfo.ai business plan
 
-*To add: link to the plan built from [docs/business-plan.md](../docs/business-plan.md).*
+**[Guardian's 24-month plan on cfo.ai](https://cfo.ai/s/zUm3_aE9Keg-yN7i)**, built with Ari, cfo.ai's AI CFO, from the inputs in [docs/business-plan.md](../docs/business-plan.md). It has pages for assumptions, customers and revenue, costs and margins, cash and runway, and an overview with base, upside and downside scenarios.
+
+The plan is a forecast from provisional assumptions (launch November 2026, one unpaid founder, the proposed $49 Team price, 5 new workspaces in month 1 growing 20% a month, 4% churn). It isn't actual performance.
+
+| Base case | |
+|---|---|
+| Revenue per Team workspace (25,000 checks a month) | $56.50 a month |
+| Variable cost per workspace | $6.22 service cost + $1.94 payment fees |
+| Contribution per workspace | $48.34 a month |
+| Gross margin over 24 months | 85.3% |
+| Paid workspaces to break even with an unpaid founder | 2 |
+| Paid workspaces to pay one $3,000/month salary | 74 (break-even June 2027) |
+| Cash needed to pay that salary from launch | about $15,100 |
+| 24-month revenue: base / upside / downside | $537k / $1.08M / $82k |
+
+Ari's verdict: "Strong unit economics; customer growth is the hard part." The base case needs about 1,648 active paid workspaces by month 24, and that demand isn't validated yet.

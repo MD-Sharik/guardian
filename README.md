@@ -54,7 +54,7 @@ A Jev check costs about 940 input tokens and 761 ms (median, measured); a fast-p
 | One NeatLogs trace per agent run: LLM tokens, tool calls, Guardian verdicts | [`demo-agent/run_trace.py`](demo-agent/run_trace.py) |
 | Architecture (diagrams, data flow, failure behaviour) | [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md) |
 | Evidence: NeatLogs traces, before/after numbers, failure recovery | [`evidence/`](evidence/README.md), [`hackathon.md`](hackathon.md) |
-| Business plan inputs for cfo.ai | [`docs/business-plan.md`](docs/business-plan.md) |
+| Business plan: inputs, and the 24-month plan built from them with cfo.ai | [`docs/business-plan.md`](docs/business-plan.md), [plan on cfo.ai](https://cfo.ai/s/zUm3_aE9Keg-yN7i) |
 | Tests (84) | `guardian-service/tests`, `guardian-sdk/tests`, `demo-agent/tests` |
 | Launch video, poster and share copy | [`brag-output/`](brag-output) |
 

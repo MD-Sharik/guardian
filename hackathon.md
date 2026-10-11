@@ -129,6 +129,6 @@ Writing the low-level design surfaced four issues, now listed under "Open points
 ## Still to do before submission (12 October, 11:55 PM IST)
 
 - [x] Entire: checkpoint `01M4NS3PV7C9FHQP1RBW6WDEYD`, linked in [evidence/README.md](evidence/README.md).
-- [ ] cfo.ai: build the business plan from [docs/business-plan.md](docs/business-plan.md) and link it.
+- [x] cfo.ai: [24-month plan](https://cfo.ai/s/zUm3_aE9Keg-yN7i), built from [docs/business-plan.md](docs/business-plan.md), summarised in [evidence/README.md](evidence/README.md).
 - [ ] Live "after" agent run with the fast path and refined policy, which needs Jev credits.
 - [ ] Demo video, #neatHack posts ([drafts](docs/neathack-posts.md)), submission post.
