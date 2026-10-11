@@ -1,0 +1,45 @@
+Background (from the session that started this one):
+Guardian is a hackathon project (neatHack, team huma1nity, deadline 12 Oct 2026 11:55 PM IST): a FastAPI service that checks every AI agent tool call with Jev (TypeSafe AI System One) and returns ALLOW, BLOCK or ESCALATE. It traces to NeatLogs, reads sessions with the Entire CLI, and explains blocks with DeepSeek on Modal. The repo is public at github.com/MD-Sharik/guardian; the latest pushed commit is e2336cf, and 84 tests pass. The existing docs/ARCHITECTURE.md is a single mixed document. The user asked for a high-level and a low-level architecture. This session's transcript will be attached as the project's Entire checkpoint (a required hackathon artifact), which is why it must stay free of credentials, screenshots and personal data. The coordinating session will attach the checkpoint and push after this session commits.
+
+Task:
+Write Guardian's architecture as two documents, a high-level design and a low-level design, grounded in the code in this repository (C:\Users\sharik\guardian), then commit them. Do not push.
+
+Files:
+- Rewrite docs/ARCHITECTURE.md as the high-level design (keep this path: README.md and other docs link to it). At its top, link to the low-level design.
+- Create docs/ARCHITECTURE-LOW-LEVEL.md as the low-level design.
+- In README.md, only adjust the existing "## Architecture" section so it points to both documents. Keep any diagram there, and don't touch other sections.
+
+High-level design (docs/ARCHITECTURE.md), for a judge or new engineer reading in five minutes:
+- What Guardian is and the problem it solves (a pre-execution checkpoint between an AI agent and its tools).
+- System context: agent (Antigravity via hooks, LangGraph via protect()), Guardian service, Jev (TypeSafe AI System One), NeatLogs, Entire CLI, the LLM explainer (DeepSeek V4.1 Flash on Modal, any OpenAI-compatible endpoint), the dashboard, and the human reviewer.
+- Components and responsibilities: guardian-service, guardian-sdk (client, protect, Antigravity hook), dashboard, demo-agent.
+- Main flows: ALLOW, BLOCK, ESCALATE with human approve/reject/expiry/handoff, the read-only fast path, and Jev unreachable (escalate, never guess).
+- What happens synchronously (Jev + policy) versus in the background (Entire, explainer, NeatLogs trace).
+- Deployment view: the local setup (service on 127.0.0.1:8000, dashboard on :3000, SQLite file, CLIs, external APIs).
+- Failure behaviour and trust boundaries.
+- How each sponsor tool is used.
+- Mermaid diagrams: a system-context or component diagram, plus a sequence diagram of one decision.
+
+Low-level design (docs/ARCHITECTURE-LOW-LEVEL.md), precise enough to reimplement:
+- Module map with file paths and one-line responsibilities.
+- Data model: EvaluateRequest, ActionContext, Decision (every field), JevSignals, JevResult, TraceRef, Explanation, statuses, and the decision state machine as a Mermaid stateDiagram.
+- API contract: every endpoint in guardian-service/app/main.py with request and response shapes and error codes, plus the SSE event format.
+- The Jev request: how state and typed questions are built (Noul / Choice / Score, output_ok only for writes), how answers become signals, and the confidence formula.
+- Policy: every rule in policy.py with its threshold, environment variable and default, rule precedence, and the fast-path regex (GUARDIAN_FAST_PATH_TOOLS, full match).
+- Background enrichment order, and the NeatLogs payload shapes: the decision span tree, the agent run trace (demo-agent/run_trace.py), and the replay trace (guardian-service/app/replay.py), plus the retry rules (5xx and network errors retried, 4xx not) and POST /traces/retry.
+- SDK internals: check/acheck, long-poll waiting, fail_open, the refusal message prefix, and reporting results.
+- The Antigravity hook protocol: stdin fields, the stdout decision mapping, and fail-closed behaviour.
+- Storage: the SQLite schema. A configuration reference table of every environment variable read by config.py, the SDK, the hook and the demo agent.
+- Concurrency notes, and how the tests are organised.
+
+Rules:
+- Every statement must match the code. Read the source rather than guessing. Where the code is ambiguous, say so instead of inventing behaviour.
+- Plain, direct English: short sentences, no marketing language. Tables for reference material.
+- Mermaid must render on GitHub: quote labels that contain punctuation, and avoid HTML in labels.
+- Do not open, print or quote .env, and don't look for credentials anywhere. Do not make live calls to Jev, Modal or NeatLogs, and don't start or stop the running Guardian service or dashboard; this is documentation work only. Don't take screenshots or add images.
+- When done, commit only the files you changed, with a clear message whose last line is:
+  Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>
+  Do not push and do not amend existing commits.
+- Finish by reporting the commit SHA and a short summary of what each document covers.
+
+Shared notes folder for this group of sessions (outside the repo; read siblings' notes there, leave hand-over notes or large findings there instead of pasting them into messages): C:\Users\sharik\AppData\Roaming\Claude\side-session-notes\local_332bbb87-d51c-45fd-8bfb-d89ff8d97d4e
