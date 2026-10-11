@@ -60,7 +60,10 @@ A Jev check costs about 940 input tokens and 761 ms (median, measured); a fast-p
 
 ## Architecture
 
-The full write-up, with the decision sequence, Jev's questions, the policy and failure behaviour, is in [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md).
+The architecture is written up in two documents:
+
+- **[High-level design](docs/ARCHITECTURE.md)**: what Guardian is, the system context, components, the ALLOW / BLOCK / ESCALATE flows, what runs synchronously and what runs in the background, deployment, failure behaviour, trust boundaries, and how each sponsor tool is used.
+- **[Low-level design](docs/ARCHITECTURE-LOW-LEVEL.md)**: module map, data model and decision state machine, the API and SSE contract, the Jev request, every policy rule and threshold, NeatLogs payloads and retries, SDK and Antigravity hook internals, storage, configuration, concurrency and tests.
 
 ```mermaid
 flowchart LR
